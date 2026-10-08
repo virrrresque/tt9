@@ -93,7 +93,8 @@ public class LanguageDefinition {
 				contents.append(buffer, 0, read);
 			}
 
-			return contents.toString().split("\n");
+			// accept Windows line endings too, in case the definitions were built from a CRLF checkout
+			return contents.toString().split("\r?\n");
 		} catch (IOException e) {
 			Logger.e(LOG_TAG, "Failed reading language definitions from: '" + DEFINITIONS_PATH + "'. " + e.getMessage());
 			return new String[0];

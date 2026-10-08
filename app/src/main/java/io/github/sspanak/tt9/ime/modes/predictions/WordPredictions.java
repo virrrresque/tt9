@@ -3,6 +3,8 @@ package io.github.sspanak.tt9.ime.modes.predictions;
 import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import io.github.sspanak.tt9.db.DataStore;
 import io.github.sspanak.tt9.languages.Language;
@@ -12,6 +14,12 @@ import io.github.sspanak.tt9.util.TextTools;
 import io.github.sspanak.tt9.util.chars.Characters;
 
 public class WordPredictions extends Predictions {
+	private static final String[][] FRENCH_PREFERRED_ELISIONS = { {"c'", "ç'"}, {"s'", "p'"} };
+	private static final List<String> FRENCH_ELISIONS = Arrays.asList(
+		"c'", "ç'", "d'", "j'", "l'", "m'", "n'", "s'", "t'", "qu'",
+		"jusqu'", "lorsqu'", "puisqu'", "quoiqu'", "quelqu'", "presqu'"
+	);
+
 	private LocaleWordsSorter localeWordsSorter;
 
 	private String inputWord;
@@ -111,6 +119,7 @@ public class WordPredictions extends Predictions {
 		suggestStem(newWords);
 		dbWords = localeWordsSorter.shouldSort(stem, digitSequence) ? localeWordsSorter.sort(dbWords) : dbWords;
 		dbWords = rearrangeByPairFrequency(dbWords);
+		dbWords = preferFrenchElisions(dbWords);
 		suggestMissingWords(generatePossibleStemVariations(dbWords), newWords);
 		suggestMissingWords(dbWords.isEmpty() ? generateWordVariations(inputWord) : dbWords, newWords);
 		if (digitSequence.length() == 1 && digitSequence.charAt(0) >= '2' && digitSequence.charAt(0) <= '9') {
@@ -119,6 +128,52 @@ public class WordPredictions extends Predictions {
 		words = insertPunctuationCompletions(newWords);
 
 		onWordsChanged.run();
+	}
+
+
+	/**
+	 * preferFrenchElisions
+	 * Some French elisions share the same key sequence with a rarely used one: "c'" with "ç'" and
+	 * "s'" with "p'". Learning does not help, because the elision is usually accepted as a part of
+	 * a longer word, like "c'est". So, we always put the common one first.
+	 */
+	private ArrayList<String> preferFrenchElisions(ArrayList<String> dbWords) {
+		if (!LanguageKind.isFrench(language)) {
+			return dbWords;
+		}
+
+		for (String[] pair : FRENCH_PREFERRED_ELISIONS) {
+			int preferredIndex = TextTools.indexOfIgnoreCase(dbWords, pair[0]);
+			int otherIndex = TextTools.indexOfIgnoreCase(dbWords, pair[1]);
+			if (preferredIndex > otherIndex && otherIndex != -1) {
+				dbWords = new ArrayList<>(dbWords);
+				dbWords.add(otherIndex, dbWords.remove(preferredIndex));
+			}
+		}
+
+		return dbWords;
+	}
+
+
+	/**
+	 * learnFrenchElision
+	 * When a word like "m'appelle" is accepted, only the whole word reaches the database, and it is not
+	 * there. Here, we also raise the elision ("m'"), so that next time it comes before "n'".
+	 */
+	private void learnFrenchElision(@NonNull String word) {
+		int apostrophe = word.indexOf('\'');
+		if (!LanguageKind.isFrench(language) || apostrophe < 1 || apostrophe == word.length() - 1) {
+			return;
+		}
+
+		String elision = word.substring(0, apostrophe + 1).toLowerCase(language.getLocale());
+		if (!FRENCH_ELISIONS.contains(elision)) {
+			return;
+		}
+
+		try {
+			DataStore.makeTopWord(language, elision, language.getDigitSequenceForWord(elision));
+		} catch (Exception ignored) {}
 	}
 
 
@@ -261,6 +316,10 @@ public class WordPredictions extends Predictions {
 	 * when there are many textonyms for a single sequence.
 	 */
 	public void onAccept(String word, String sequence) {
+		if (word != null) {
+			learnFrenchElision(word);
+		}
+
 		if (
 			word == null
 			// If the word is the first suggestion, we have already guessed it right, and it makes no

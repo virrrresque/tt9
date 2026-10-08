@@ -4,6 +4,17 @@ TT9 is a Nokia-style T9 keyboard for Android. It provides predictive text input 
 
 This is a modernized version of the [original project](https://github.com/Clam-/TraditionalT9) by Clam-.
 
+> [!NOTE]
+> **This is an unofficial fork with fixes for the Kyocera DIGNO 902KC** (Android 8.1, flip phone, no touchscreen), based on TT9 v63.0. All credit for TT9 goes to [sspanak](https://github.com/sspanak/tt9). Download the patched APK from [Releases](https://github.com/virrrresque/tt9/releases).
+>
+> Changes on the `kyocera-902kc` branch:
+> - **OK/Done now closes Kyocera mail fields** (subject, address, body). The stock Kyocera mail app (`jp.kyocera.fpmail`) ignores `IME_ACTION_DONE` and only reacts to the private command `Finish_IME`, which TT9 now sends. Official TT9 inserts a new line instead ([#423](https://github.com/sspanak/tt9/issues/423)).
+> - **French predictions:** `c'` is suggested before `ç'`, `s'` before `p'`, and elided words are learned.
+> - **Windows build fix:** language definitions are split on `?
+`, so a CRLF checkout no longer produces empty keyboard layouts.
+>
+> Install over another build signed with a different key? Uninstall first, then `adb install tt9-v63-kyocera.apk`.
+
 ## 📷 Screenshots
 <table>
     <tr>
